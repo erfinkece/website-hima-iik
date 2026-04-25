@@ -753,6 +753,44 @@
     opacity: 1;
     transform: translateY(0);
   }
+
+  /* LOADING OVERLAY */
+  #loading-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(10, 14, 39, 0.92);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    z-index: 99999;
+    gap: 16px;
+    transition: opacity 0.4s ease;
+  }
+
+  #loading-overlay.hidden {
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  .loading-spinner {
+    width: 48px;
+    height: 48px;
+    border: 3px solid rgba(0, 217, 255, 0.2);
+    border-top-color: var(--accent-cyan);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
+
+  @keyframes spin {
+    to { transform: rotate(360deg); }
+  }
+
+  .loading-text {
+    color: var(--text-secondary);
+    font-size: 14px;
+    font-weight: 600;
+  }
   
   /* DATA MANAGEMENT BAR */
   .data-bar {
@@ -1056,6 +1094,12 @@
 </head>
 <body>
 
+<!-- LOADING OVERLAY: ditampilkan sampai Firebase + data load selesai -->
+<div id="loading-overlay">
+  <div class="loading-spinner"></div>
+  <div class="loading-text" id="loading-text">Menghubungkan ke cloud...</div>
+</div>
+
 <!-- NAVBAR -->
 <nav class="navbar">
   <div class="nav-container">
@@ -1089,7 +1133,7 @@
         <span class="auto-save-dot"></span>
         AUTO-SAVE ON
       </span>
-      <span class="last-saved-text" id="last-saved">Belum ada data tersimpan</span>
+      <span class="last-saved-text" id="last-saved">Memuat data...</span>
     </div>
     <div class="data-bar-buttons">
       <button class="data-btn export" onclick="exportData()" title="Download data ke file JSON">
@@ -2086,32 +2130,21 @@
     <div class="info-box">
       <h3>Apa Itu MPPT?</h3>
       <p>MPPT singkatan dari <strong>Maximum Power Point Tracking</strong>. Ini algoritma yang dipakai charge controller untuk mengambil <strong>daya maksimum</strong> dari panel surya pada kondisi cuaca tertentu.</p>
-      
       <p>Setiap panel surya punya kurva I-V (Arus vs Tegangan). Dalam kurva ini ada <strong>satu titik</strong> di mana daya output mencapai maksimum, namanya <strong>Maximum Power Point (MPP)</strong>. MPP ini berubah-ubah tergantung intensitas cahaya, suhu panel, dan beban.</p>
-      
       <h4>Cara Kerja Singkat</h4>
       <ol>
         <li><strong>Baca tegangan & arus panel</strong> tiap interval (di proyekmu: A0 untuk Vpanel, A1 untuk Ipanel)</li>
         <li><strong>Hitung daya:</strong> P = V × I</li>
         <li><strong>Bandingkan dengan daya sebelumnya</strong></li>
-        <li><strong>Adjust duty cycle PWM</strong> ke power stage (BTS7960):
-          <ul>
-            <li>Kalau daya naik → lanjutkan arah perubahan duty</li>
-            <li>Kalau daya turun → balik arah perubahan duty</li>
-          </ul>
-        </li>
+        <li><strong>Adjust duty cycle PWM</strong> ke power stage (BTS7960)</li>
         <li><strong>Ulangi terus</strong> sampai mencapai MPP</li>
       </ol>
-      
-      <p>Algoritma ini disebut <strong>Perturb & Observe (P&O)</strong>. Sederhana dan paling umum dipakai di MPPT level capstone.</p>
-      
-      <div class="formula-box">P_panel = V_panel × I_panel<br>ΔP = P_now − P_previous<br>jika ΔP {'>'} 0 → lanjut arah · jika ΔP {'<'} 0 → balik arah</div>
+      <p>Algoritma ini disebut <strong>Perturb & Observe (P&O)</strong>.</p>
+      <div class="formula-box">P_panel = V_panel × I_panel<br>ΔP = P_now − P_previous</div>
     </div>
     
     <div class="info-box">
       <h3>MPPT vs PWM — Apa Bedanya?</h3>
-      <p>PWM (Pulse Width Modulation) charge controller juga menyalurkan daya panel ke baterai, tapi caranya beda. PWM hanya menyalakan dan mematikan koneksi panel-baterai dengan duty cycle, <strong>tidak optimasi titik kerja</strong> panel.</p>
-      
       <table class="comparison-table">
         <thead>
           <tr>
@@ -2121,83 +2154,13 @@
           </tr>
         </thead>
         <tbody>
-          <tr>
-            <td>Prinsip Kerja</td>
-            <td class="loser">On/Off pulsa langsung</td>
-            <td class="winner">Tracking titik daya maksimum</td>
-          </tr>
-          <tr>
-            <td>Tegangan Panel</td>
-            <td class="loser">Dipaksa = Vbatt</td>
-            <td class="winner">Bekerja di Vmpp panel</td>
-          </tr>
-          <tr>
-            <td>Efisiensi Cuaca Cerah</td>
-            <td class="loser">~70-75%</td>
-            <td class="winner">~95-98%</td>
-          </tr>
-          <tr>
-            <td>Efisiensi Cuaca Mendung</td>
-            <td class="loser">~50-60%</td>
-            <td class="winner">~85-95%</td>
-          </tr>
-          <tr>
-            <td>Kebutuhan Panel</td>
-            <td>V panel ≈ V batt</td>
-            <td>V panel bisa {'>'} V batt</td>
-          </tr>
-          <tr>
-            <td>Kompleksitas</td>
-            <td class="winner">Sederhana, murah</td>
-            <td class="loser">Lebih kompleks</td>
-          </tr>
-          <tr>
-            <td>Harga Komersial</td>
-            <td class="winner">Murah</td>
-            <td class="loser">Lebih mahal</td>
-          </tr>
-          <tr>
-            <td>Cocok Untuk</td>
-            <td>Sistem kecil sederhana</td>
-            <td>Sistem yang butuh efisiensi tinggi</td>
-          </tr>
+          <tr><td>Prinsip Kerja</td><td class="loser">On/Off pulsa langsung</td><td class="winner">Tracking titik daya maksimum</td></tr>
+          <tr><td>Tegangan Panel</td><td class="loser">Dipaksa = Vbatt</td><td class="winner">Bekerja di Vmpp panel</td></tr>
+          <tr><td>Efisiensi Cuaca Cerah</td><td class="loser">~70-75%</td><td class="winner">~95-98%</td></tr>
+          <tr><td>Efisiensi Cuaca Mendung</td><td class="loser">~50-60%</td><td class="winner">~85-95%</td></tr>
+          <tr><td>Kompleksitas</td><td class="winner">Sederhana, murah</td><td class="loser">Lebih kompleks</td></tr>
         </tbody>
       </table>
-      
-      <h4>Contoh Perhitungan Kenapa MPPT Lebih Bagus</h4>
-      <p>Misalkan panel 50Wp dengan spesifikasi:</p>
-      <ul>
-        <li>V_open_circuit (Voc) = 22V</li>
-        <li>V_max_power (Vmpp) = 18V</li>
-        <li>I_max_power (Impp) = 2.78A</li>
-        <li>P_max = Vmpp × Impp = 18 × 2.78 = <strong>50W</strong></li>
-      </ul>
-      
-      <p>Aki yang diisi: 12V (saat cas: ~13.5V)</p>
-      
-      <h4>Skenario PWM:</h4>
-      <p>PWM memaksa panel bekerja di tegangan baterai (~13.5V). Pada V = 13.5V, arus panel mungkin <strong>~2.85A</strong> (di kurva I-V hampir Isc). Tapi:</p>
-      <div class="formula-box">P_pwm = V_batt × I_panel = 13.5 × 2.85 = <strong>38.5W</strong></div>
-      <p>Efisiensi PWM = 38.5 / 50 = <strong>77%</strong>. Yang sampai ke baterai juga tidak sebesar ini setelah loss konversi.</p>
-      
-      <h4>Skenario MPPT:</h4>
-      <p>MPPT bekerja di Vmpp (18V) untuk dapat daya maksimum panel:</p>
-      <div class="formula-box">P_mppt_input = Vmpp × Impp = 18 × 2.78 = <strong>50W</strong></div>
-      <p>Lalu konverter buck turunkan ke 13.5V untuk cas baterai. Dengan efisiensi konversi ~95%:</p>
-      <div class="formula-box">P_to_battery = 50 × 0.95 = 47.5W<br>I_charging = 47.5 / 13.5 = <strong>3.52A</strong></div>
-      
-      <p>Bandingkan:</p>
-      <table class="comparison-table">
-        <thead>
-          <tr><th>Metode</th><th>Daya Diambil dari Panel</th><th>Daya Sampai ke Aki</th><th>Efisiensi</th></tr>
-        </thead>
-        <tbody>
-          <tr><td class="loser">PWM</td><td>38.5W</td><td>~32W (loss)</td><td>~64%</td></tr>
-          <tr><td class="winner">MPPT (proyek kamu)</td><td>50W</td><td>~47.5W</td><td>~95%</td></tr>
-        </tbody>
-      </table>
-      
-      <p>Selisih daya yang sampai ke aki: <strong>~15W lebih banyak dengan MPPT</strong>. Ini yang bikin MPPT layak dipakai meski lebih kompleks.</p>
     </div>
   </section>
   
@@ -2230,131 +2193,50 @@
         </tbody>
       </table>
     </div>
-    
-    <h3 style="color: var(--accent-cyan); margin: 32px 0 16px; font-size: 22px;">Step-by-Step Wiring</h3>
-    
+
     <div class="wire-step">
       <h4><span class="wire-step-num">1</span>Sumber Daya — Aki ke Regulator 5V</h4>
-      <p>Sambungan pertama yang harus jadi: supply 5V ke seluruh sistem.</p>
-      <pre>TB_BATT pin 1 (BATT+) ──────► IN regulator 5V (K7805)
-TB_BATT pin 2 (BATT-) ──────► GND regulator 5V
-
-OUT regulator (5V) ──────► Rail +5V (ke Nano, LCD, ACS, Relay, BTS logic)
-GND regulator ──────► Rail GND sistem</pre>
+      <pre>TB_BATT pin 1 (BATT+) ──► IN regulator 5V (K7805)
+TB_BATT pin 2 (BATT-) ──► GND regulator 5V
+OUT regulator (5V) ──────► Rail +5V
+GND regulator ──────────► Rail GND sistem</pre>
     </div>
     
     <div class="wire-step">
-      <h4><span class="wire-step-num">2</span>Arduino Nano — Power</h4>
-      <pre>+5V Rail ──────► Nano pin 5V (U2-12)
-GND Rail ──────► Nano pin GND (U2-14 dan U1-4)</pre>
-      <p style="color: var(--accent-yellow); font-size: 13px; margin-top: 8px;">⚠ JANGAN nyalakan Nano dari USB saat aki sudah tersambung. Pakai salah satu sumber saja.</p>
-    </div>
-    
-    <div class="wire-step">
-      <h4><span class="wire-step-num">3</span>Sensor Tegangan Panel (Vpanel)</h4>
+      <h4><span class="wire-step-num">2</span>Sensor Tegangan Panel (Vpanel)</h4>
       <pre>PANEL+ → R1 (100kΩ) → titik tengah VPANEL_SENSE
-                              │
                               ├──► A0 Arduino
-                              │
-                              └─→ R2 (22kΩ) → GND
-
-Rumus: Vpanel = ADC × (5/1023) × ((100k+22k)/22k)</pre>
+                              └─→ R2 (22kΩ) → GND</pre>
     </div>
     
     <div class="wire-step">
-      <h4><span class="wire-step-num">4</span>Sensor Tegangan Baterai (Vbatt)</h4>
-      <pre>BATT+ → R3 (20kΩ) → titik tengah VBATT_SENSE
-                              │
-                              ├──► A2 Arduino
-                              │
-                              └─→ R4 (10kΩ) → GND
-
-Rumus: Vbatt = ADC × (5/1023) × ((20k+10k)/10k)</pre>
+      <h4><span class="wire-step-num">3</span>Modul BTS7960 (Power Stage)</h4>
+      <pre>RPWM  ──► D9 Arduino (PWM 25kHz)
+LPWM  ──► GND
+R_EN  ──► +5V Rail
+L_EN  ──► +5V Rail
+B+ ──► PANEL+ (lewat ACS712)
+M+ ──► Induktor 100µH ──► AKI+ (lewat diode SS54)</pre>
     </div>
     
     <div class="wire-step">
-      <h4><span class="wire-step-num">5</span>Sensor Arus ACS712-20A</h4>
-      <pre>Sisi sinyal (header H1):
-  H1-1 (VCC) ──► +5V Rail
-  H1-2 (OUT) ──► A1 Arduino
-  H1-3 (GND) ──► GND Rail
-
-Sisi arus utama (terminal screw ACS712):
-  PANEL+ ──► IP+ ACS712
-  IP-   ──► input BTS7960</pre>
+      <h4><span class="wire-step-num">4</span>Modul Relay 30A (Pompa)</h4>
+      <pre>IN  ──► D8 Arduino
+COM ──► AKI+ (12V)
+NO  ──► POMPA+
+POMPA- ──► AKI-</pre>
     </div>
     
     <div class="wire-step">
-      <h4><span class="wire-step-num">6</span>Modul BTS7960 (Power Stage)</h4>
-      <pre>Sisi logika (header U3):
-  VCC   ──► +5V Rail
-  GND   ──► GND Rail
-  RPWM  ──► D9 Arduino (PWM 25kHz)
-  LPWM  ──► GND (kita cuma 1 arah)
-  R_EN  ──► +5V Rail (always enabled)
-  L_EN  ──► +5V Rail (always enabled)
-
-Sisi daya (terminal screw modul):
-  B+ ──► PANEL+ (lewat ACS712)
-  B- ──► PANEL- / GND
-  M+ ──► Induktor 100µH ──► AKI+ (lewat diode SS54)
-  M- ──► AKI-</pre>
-    </div>
-    
-    <div class="wire-step">
-      <h4><span class="wire-step-num">7</span>Float Switch (Tandon)</h4>
-      <pre>Float Switch terminal 1 ──► D7 Arduino
-Float Switch terminal 2 ──► GND
-
-(INPUT_PULLUP, jadi tidak butuh resistor eksternal)
-LOW = tandon kosong, HIGH = tandon penuh (tergantung orientasi)</pre>
-    </div>
-    
-    <div class="wire-step">
-      <h4><span class="wire-step-num">8</span>Modul Relay 30A (Pompa)</h4>
-      <pre>Sisi logika (header H2):
-  VCC ──► +5V Rail
-  GND ──► GND Rail
-  IN  ──► D8 Arduino
-
-Sisi kontak (terminal relay):
-  COM ──► AKI+ (12V)
-  NO  ──► POMPA+
-  POMPA- ──► AKI-
-
-(Active HIGH: D8 = HIGH → relay nyala → pompa nyala)</pre>
-    </div>
-    
-    <div class="wire-step">
-      <h4><span class="wire-step-num">9</span>LCD I2C 16×2</h4>
-      <pre>LCD Backpack:
-  VCC ──► +5V Rail
-  GND ──► GND Rail
-  SDA ──► A4 Arduino
-  SCL ──► A5 Arduino
-
-(Alamat I2C 0x3F sesuai kode)</pre>
-    </div>
-    
-    <div class="wire-step">
-      <h4><span class="wire-step-num">10</span>Push Button Menu</h4>
-      <pre>Push Button kaki 1 ──► D2 Arduino
-Push Button kaki 2 ──► GND
-
-(INPUT_PULLUP, tidak butuh resistor eksternal)
-Tekan = LOW = pindah menu</pre>
-    </div>
-    
-    <div class="wire-step">
-      <h4><span class="wire-step-num">11</span>Diode Anti-Backflow (Penting!)</h4>
-      <pre>Output BTS7960 (M+) ──► Anoda SS54 ──► Katoda SS54 ──► Induktor ──► AKI+
-
-Tujuan: Mencegah arus dari aki balik ke panel saat panel teduh atau malam.
-Diode SS54 punya forward voltage drop ~0.4V, hilang sedikit tapi aman.</pre>
+      <h4><span class="wire-step-num">5</span>LCD I2C 16×2</h4>
+      <pre>VCC ──► +5V Rail
+GND ──► GND Rail
+SDA ──► A4 Arduino
+SCL ──► A5 Arduino</pre>
     </div>
   </section>
   
-  <!-- =============== SOLUSI PIN HOLDER (RIWAYAT REVISI) =============== -->
+  <!-- =============== SOLUSI PIN =============== -->
   <section class="section" id="solusi-pin">
     <div class="section-header">
       <div class="section-icon icon-tools">🔧</div>
@@ -2366,171 +2248,17 @@ Diode SS54 punya forward voltage drop ~0.4V, hilang sedikit tapi aman.</pre>
     
     <div class="info-box" style="border-left: 4px solid var(--accent-green);">
       <h3 style="color: var(--accent-green);">✅ STATUS: SUDAH TERATASI DENGAN REVISI</h3>
-      <p>Awalnya ada masalah hole pad terlalu besar untuk komponen. Sudah diselesaikan dengan revisi spec sesuai rule terbaru vendor.</p>
-      
-      <h4>Latar Belakang Masalah</h4>
-      <p>Vendor PCB lokal (Raftech) memberikan dua versi rule yang berbeda:</p>
-      
+      <p>Vendor PCB lokal (Raftech) memberikan dua versi rule yang berbeda. Semua sudah disesuaikan.</p>
       <table class="comparison-table">
         <thead>
-          <tr>
-            <th>Parameter</th>
-            <th>Rule Awal (via Shopee)</th>
-            <th>Rule Final</th>
-            <th>Spec Desain Final</th>
-          </tr>
+          <tr><th>Parameter</th><th>Rule Awal</th><th>Rule Final</th><th>Spec Desain Final</th></tr>
         </thead>
         <tbody>
-          <tr>
-            <td>Lebar jalur min</td>
-            <td>0.4 mm</td>
-            <td class="winner">0.3 mm</td>
-            <td>0.5 mm sinyal, 1.5 mm power</td>
-          </tr>
-          <tr>
-            <td>Clearance min</td>
-            <td>0.5 mm</td>
-            <td>0.5 mm</td>
-            <td>0.5 mm</td>
-          </tr>
-          <tr>
-            <td>Hole/Drill min</td>
-            <td>1.1 mm</td>
-            <td class="winner">0.8 mm</td>
-            <td>0.8 - 1.1 mm</td>
-          </tr>
+          <tr><td>Lebar jalur min</td><td>0.4 mm</td><td class="winner">0.3 mm</td><td>0.5 mm sinyal, 1.5 mm power</td></tr>
+          <tr><td>Clearance min</td><td>0.5 mm</td><td>0.5 mm</td><td>0.5 mm</td></tr>
+          <tr><td>Hole/Drill min</td><td>1.1 mm</td><td class="winner">0.8 mm</td><td>0.8 - 1.1 mm</td></tr>
         </tbody>
       </table>
-    </div>
-    
-    <div class="info-box">
-      <h3>📋 Detail Revisi Yang Dilakukan</h3>
-      
-      <h4>1. Via (Penghubung Top-Bottom Layer)</h4>
-      <ul>
-        <li><strong>Sebelum:</strong> Outside 2.0 mm, Hole 1.1 mm</li>
-        <li><strong>Sesudah:</strong> Outside 1.5 mm, Hole <span style="color: var(--accent-green);">0.8 mm</span></li>
-        <li><strong>Alasan:</strong> Via tidak ada komponen masuk, lebih rapat = layout lebih lega</li>
-      </ul>
-      
-      <h4>2. Pad Resistor (R1-R4)</h4>
-      <ul>
-        <li><strong>Sebelum:</strong> 1.8×1.8 mm, Hole 1.1 mm</li>
-        <li><strong>Sesudah:</strong> 1.8×1.8 mm, Hole <span style="color: var(--accent-green);">0.9 mm</span></li>
-        <li><strong>Alasan:</strong> Kaki resistor 1/4W = 0.6 mm. Hole 0.9 mm pas untuk solder rapi</li>
-      </ul>
-      
-      <h4>3. Pad Header Modul (U8, H1, H2, H3)</h4>
-      <ul>
-        <li><strong>Sebelum:</strong> 2×2 mm, Hole 1.1 mm</li>
-        <li><strong>Sesudah:</strong> 2×2 mm, Hole <span style="color: var(--accent-green);">1.0 mm</span></li>
-        <li><strong>Alasan:</strong> Pin header standar 0.64-0.7 mm, hole 1.0 mm masih ada gap untuk solder</li>
-      </ul>
-      
-      <h4>4. Pad Yang TETAP (Tidak Diubah)</h4>
-      <ul>
-        <li><strong>U1, U2 (Female Header Nano)</strong> — Hole tetap 1.1 mm. Pin Nano square 0.65 mm butuh ruang solder</li>
-        <li><strong>U3 (Header BTS7960)</strong> — Hole tetap 1.1 mm. Modul tebal, butuh toleransi</li>
-        <li><strong>U6, U7 (Terminal Block 7.62 mm)</strong> — Default footprint, sudah optimal</li>
-        <li><strong>U5 (Terminal Block 5.08 mm)</strong> — Default footprint, sudah optimal</li>
-        <li><strong>Lubang Baut M3</strong> — 3.2 mm NPTH, untuk mounting box</li>
-      </ul>
-    </div>
-    
-    <div class="info-box">
-      <h3>💡 Strategi Solder Untuk Hole Yang Lebih Besar</h3>
-      <p>Walaupun sudah revisi, beberapa hole masih sedikit lebih besar dari kaki komponen. Ini cara solder yang aman:</p>
-    </div>
-    
-    <div class="solution-card">
-      <h4>💡 Strategi 1: Solder Filler (Paling Mudah)</h4>
-      <p>Untuk komponen dengan kaki pas-pasan di hole:</p>
-      <ol>
-        <li>Pasang komponen seperti biasa</li>
-        <li>Bengkokkan kaki sedikit di sisi bawah untuk pegangan mekanik</li>
-        <li>Saat solder, pakai timah lebih banyak dari biasa</li>
-        <li>Solder akan mengisi celah antara kaki dan dinding hole</li>
-        <li>Cek kontinuitas dengan multimeter setelah dingin</li>
-      </ol>
-      <p style="color: var(--accent-yellow); font-size: 13px;">⚠ Pakai flux paste supaya solder mengalir sempurna ke seluruh dinding hole.</p>
-    </div>
-    
-    <div class="solution-card">
-      <h4>💡 Strategi 2: Pakai Machined Pin Socket (Untuk Lebih Rapi)</h4>
-      <p>Khusus untuk resistor jika ingin tampilan lebih profesional:</p>
-      <ul>
-        <li>Beli female header machined pin (cari di Shopee: <code>"machined pin socket round female header 2.54mm"</code>)</li>
-        <li>Solder machined pin ke PCB dulu</li>
-        <li>Resistor dipasang ke socket atas — bisa dilepas-pasang</li>
-        <li>Ada round contact yang menjepit kaki resistor dengan kuat</li>
-      </ul>
-    </div>
-    
-    <div class="info-box">
-      <h3>🎯 Rekomendasi Solder Strategi Per Komponen</h3>
-      <table class="comparison-table">
-        <thead>
-          <tr>
-            <th>Komponen</th>
-            <th>Hole</th>
-            <th>Strategi Solder</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr>
-            <td>R1-R4 (Resistor)</td>
-            <td>0.9 mm</td>
-            <td>Solder filler atau machined pin</td>
-          </tr>
-          <tr>
-            <td>U8 (Regulator 5V)</td>
-            <td>1.0 mm</td>
-            <td>Solder biasa, pin K7805 cocok</td>
-          </tr>
-          <tr>
-            <td>H1, H2 (3-pin header)</td>
-            <td>1.0 mm</td>
-            <td>Solder biasa</td>
-          </tr>
-          <tr>
-            <td>H3 (LCD Panel header)</td>
-            <td>1.0 mm</td>
-            <td>Solder biasa</td>
-          </tr>
-          <tr>
-            <td>U1, U2 (Female Header Nano)</td>
-            <td>1.1 mm</td>
-            <td>Solder dengan timah cukup banyak</td>
-          </tr>
-          <tr>
-            <td>U3 (Header BTS7960)</td>
-            <td>1.1 mm</td>
-            <td>Solder dengan timah cukup banyak</td>
-          </tr>
-          <tr>
-            <td>U5, U6, U7 (Terminal Block)</td>
-            <td>default</td>
-            <td>Default, solder biasa</td>
-          </tr>
-          <tr>
-            <td>Push Button</td>
-            <td>default</td>
-            <td>Solder biasa</td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
-    
-    <div class="info-box" style="border-left: 4px solid var(--accent-purple);">
-      <h3 style="color: var(--accent-purple);">📚 Pembelajaran dari Proses Revisi Ini</h3>
-      <p style="color: var(--text-secondary);">Pengalaman ini bagus untuk dokumentasi laporan TA, menunjukkan kemampuan adaptasi dengan kendala manufaktur:</p>
-      <ol>
-        <li><strong>Selalu cek rule vendor</strong> sebelum finalisasi desain</li>
-        <li><strong>Klarifikasi rule yang tidak jelas</strong> langsung ke vendor, jangan asumsi</li>
-        <li><strong>Revisi minimal lebih baik</strong> daripada rombak ulang — tetap jaga design integrity</li>
-        <li><strong>Toleransi manufaktur</strong> kadang lebih ketat untuk vendor lokal vs vendor luar negeri</li>
-        <li><strong>Trade-off antara presisi dan biaya</strong> — vendor lokal cepat tapi kasar, vendor luar lebih halus tapi lambat</li>
-      </ol>
     </div>
   </section>
   
@@ -2546,58 +2274,15 @@ Diode SS54 punya forward voltage drop ~0.4V, hilang sedikit tapi aman.</pre>
     
     <div class="info-box">
       <h3>✅ Verifikasi Kode: Sudah REAL CODE</h3>
-      <p>Kode Arduino yang ada sudah bukan dummy, sudah real dan siap dipakai. Saya verifikasi dengan PCB dan rancangan hardware:</p>
-      
-      <h4>1. Pin Mapping Match dengan PCB ✅</h4>
-      <table class="comparison-table">
-        <thead>
-          <tr><th>Konstanta Kode</th><th>Pin Arduino</th><th>Sambungan PCB</th><th>Status</th></tr>
-        </thead>
-        <tbody>
-          <tr><td><code>PIN_PWM</code></td><td>D9</td><td>BTS7960 RPWM</td><td><span class="status-pill pill-ready">✓ Match</span></td></tr>
-          <tr><td><code>PIN_VPANEL</code></td><td>A0</td><td>Divider 100k+22k</td><td><span class="status-pill pill-ready">✓ Match</span></td></tr>
-          <tr><td><code>PIN_CURRENT</code></td><td>A1</td><td>ACS712 OUT</td><td><span class="status-pill pill-ready">✓ Match</span></td></tr>
-          <tr><td><code>PIN_VBATT</code></td><td>A2</td><td>Divider 20k+10k</td><td><span class="status-pill pill-ready">✓ Match</span></td></tr>
-          <tr><td><code>PIN_FLOAT_SWITCH</code></td><td>D7</td><td>Float Switch</td><td><span class="status-pill pill-ready">✓ Match</span></td></tr>
-          <tr><td><code>PIN_RELAY</code></td><td>D8</td><td>Relay IN</td><td><span class="status-pill pill-ready">✓ Match</span></td></tr>
-          <tr><td><code>PIN_BUTTON</code></td><td>D2</td><td>Push Button</td><td><span class="status-pill pill-ready">✓ Match</span></td></tr>
-        </tbody>
-      </table>
-      
-      <h4>2. Konstanta Hardware Match ✅</h4>
-      <ul>
-        <li><strong>Resistor divider:</strong> RVP1=100k, RVP2=22k, RVB1=20k, RVB2=10k — match dengan PCB</li>
-        <li><strong>ACS712 sensitivity:</strong> 0.185 V/A — sesuai untuk versi 20A</li>
-        <li><strong>Relay logic:</strong> Active HIGH — sesuai modul yang dipilih</li>
-        <li><strong>LCD Address:</strong> 0x3F — sesuai modul I2C standar</li>
-      </ul>
-      
-      <h4>3. Fitur Yang Sudah Implemented ✅</h4>
-      <ul>
-        <li><strong>Hardware PWM 25kHz</strong> dari Timer1 OCR1A (bukan PWM software)</li>
-        <li><strong>MPPT P&O 4-arah</strong> dengan tracking duty cycle 10%-90%</li>
-        <li><strong>LVD dengan hysteresis</strong> — disconnect 11V, reconnect 12V (mencegah flip-flop)</li>
-        <li><strong>30-sample averaging</strong> untuk pembacaan ADC stabil</li>
-        <li><strong>4 halaman menu LCD</strong> dengan tombol D2 untuk pindah</li>
-        <li><strong>Auto-detect mode sistem</strong>: MALAM / SURPLUS / HYBRID</li>
-        <li><strong>Smart pump control</strong>: tank empty + battery safe</li>
-        <li><strong>Serial debug</strong> 115200 baud setiap 300ms</li>
-        <li><strong>Test mode</strong> via flag <code>BYPASS_LVD_FOR_TEST</code></li>
-      </ul>
-    </div>
-    
-    <div class="info-box">
-      <h3>⚙️ Bagian Penting di Kode</h3>
-      
       <h4>Algoritma MPPT P&O (Perturb & Observe)</h4>
       <div class="code-block">
 <span class="comment">// Algoritma 4-arah, sangat akurat</span>
 <span class="keyword">if</span> (pPanel &gt; lastPower) {
-  <span class="keyword">if</span> (vPanel &gt; lastVoltage) dutyPercent -= dutyStep;  <span class="comment">// V↑ P↑ → kurangi duty</span>
-  <span class="keyword">else</span> dutyPercent += dutyStep;                       <span class="comment">// V↓ P↑ → tambah duty</span>
+  <span class="keyword">if</span> (vPanel &gt; lastVoltage) dutyPercent -= dutyStep;
+  <span class="keyword">else</span> dutyPercent += dutyStep;
 } <span class="keyword">else</span> {
-  <span class="keyword">if</span> (vPanel &gt; lastVoltage) dutyPercent += dutyStep;  <span class="comment">// V↑ P↓ → tambah duty</span>
-  <span class="keyword">else</span> dutyPercent -= dutyStep;                       <span class="comment">// V↓ P↓ → kurangi duty</span>
+  <span class="keyword">if</span> (vPanel &gt; lastVoltage) dutyPercent += dutyStep;
+  <span class="keyword">else</span> dutyPercent -= dutyStep;
 }
       </div>
       
@@ -2605,56 +2290,10 @@ Diode SS54 punya forward voltage drop ~0.4V, hilang sedikit tapi aman.</pre>
       <div class="code-block">
 <span class="comment">// 16MHz / (639+1) = 25kHz exact</span>
 <span class="keyword">const uint16_t</span> TIMER1_TOP = <span class="number">639</span>;
-
-<span class="comment">// Setup PWM mode 14, prescaler 1</span>
 TCCR1A |= (<span class="number">1</span> &lt;&lt; COM1A1) | (<span class="number">1</span> &lt;&lt; WGM11);
 TCCR1B |= (<span class="number">1</span> &lt;&lt; WGM13) | (<span class="number">1</span> &lt;&lt; WGM12) | (<span class="number">1</span> &lt;&lt; CS10);
 ICR1 = TIMER1_TOP;
-OCR1A = ocrValue;  <span class="comment">// Update duty cycle</span>
       </div>
-      
-      <h4>Pembacaan Vpanel dengan 30-Sample Average</h4>
-      <div class="code-block">
-<span class="keyword">float</span> <span class="function">readVPanel</span>() {
-  <span class="keyword">float</span> vDivider = adcToVoltage(readAnalogAverage(PIN_VPANEL, NUM_SAMPLES));
-  <span class="keyword">return</span> vDivider * ((RVP1 + RVP2) / RVP2);  <span class="comment">// = vDivider × 5.545</span>
-}
-
-<span class="comment">// Rumus divider 100k + 22k:</span>
-<span class="comment">// Vpanel = ADC × (5/1023) × (122/22) ≈ ADC × 0.0271</span>
-      </div>
-    </div>
-    
-    <div class="info-box">
-      <h3>⚠️ 3 Hal Yang Perlu DIKALIBRASI Saat Hardware Real</h3>
-      <p>Walaupun kode sudah real, beberapa nilai perlu disesuaikan saat hardware sudah jadi:</p>
-      
-      <h4>1. ACS712 Zero Point</h4>
-      <div class="code-block">
-<span class="keyword">const float</span> ACS_ZERO = <span class="number">2.50f</span>;  <span class="comment">// teori 2.5V saat 0A</span>
-      </div>
-      <p style="color: var(--text-secondary); font-size: 14px;">
-        <strong>Praktik:</strong> ACS712 punya offset, bisa 2.45-2.55V tergantung modul aktual. 
-        <strong>Cara kalibrasi:</strong> Pasang sistem tanpa beban panel, ukur tegangan output ACS712 dengan multimeter. Update angka 2.50 ke nilai yang terbaca.
-      </p>
-      
-      <h4>2. Float Switch State</h4>
-      <div class="code-block">
-<span class="keyword">const uint8_t</span> FLOAT_EMPTY_STATE = LOW;
-      </div>
-      <p style="color: var(--text-secondary); font-size: 14px;">
-        <strong>Praktik:</strong> Tergantung orientasi pemasangan float switch. 
-        <strong>Cara cek:</strong> Tes manual — angkat pelampung, lihat di Serial Monitor. Kalau LOW = penuh, balik jadi HIGH.
-      </p>
-      
-      <h4>3. LCD I2C Address</h4>
-      <div class="code-block">
-LiquidCrystal_I2C lcd(<span class="number">0x3F</span>, <span class="number">16</span>, <span class="number">2</span>);
-      </div>
-      <p style="color: var(--text-secondary); font-size: 14px;">
-        <strong>Praktik:</strong> Beberapa modul LCD pakai address <code>0x27</code>. 
-        <strong>Cara cek:</strong> Upload sketch I2C Scanner dulu (banyak di Google), baca address yang muncul, sesuaikan kode.
-      </p>
     </div>
     
     <div class="info-box">
@@ -2664,182 +2303,34 @@ LiquidCrystal_I2C lcd(<span class="number">0x3F</span>, <span class="number">16<
           <span id="checklist-progress">0/25</span>
         </div>
       </div>
-      <p>Ikuti urutan ini agar testing aman dan terstruktur. Klik checkbox untuk menandai progress:</p>
       
       <div class="checklist">
-        <div class="checklist-item" onclick="toggleCheck(this)">
-          <div class="checkbox"></div>
-          <div class="checklist-text"><strong>1. Solder semua komponen ke PCB</strong> — Female header, terminal block, resistor divider, regulator, push button</div>
-        </div>
-        
-        <div class="checklist-item" onclick="toggleCheck(this)">
-          <div class="checkbox"></div>
-          <div class="checklist-text"><strong>2. Cek visual PCB</strong> — Tidak ada short, semua solder mengkilap, kaki komponen terpotong rapi</div>
-        </div>
-        
-        <div class="checklist-item" onclick="toggleCheck(this)">
-          <div class="checkbox"></div>
-          <div class="checklist-text"><strong>3. Cek kontinuitas dengan multimeter</strong> — Pad ke pad sesuai schematic, terutama jalur power</div>
-        </div>
-        
-        <div class="checklist-item" onclick="toggleCheck(this)">
-          <div class="checkbox"></div>
-          <div class="checklist-text"><strong>4. Pasang Arduino Nano ke female header</strong> — Pastikan orientasi USB ke arah yang benar</div>
-        </div>
-        
-        <div class="checklist-item" onclick="toggleCheck(this)">
-          <div class="checkbox"></div>
-          <div class="checklist-text"><strong>5. Set BYPASS_LVD_FOR_TEST = true</strong> — Disable proteksi battery untuk testing awal</div>
-        </div>
-        
-        <div class="checklist-item" onclick="toggleCheck(this)">
-          <div class="checkbox"></div>
-          <div class="checklist-text"><strong>6. Upload kode dari Arduino IDE</strong> — Pilih board "Arduino Nano", processor "ATmega328P (Old Bootloader)" jika perlu</div>
-        </div>
-        
-        <div class="checklist-item" onclick="toggleCheck(this)">
-          <div class="checkbox"></div>
-          <div class="checklist-text"><strong>7. Pasang aki 12V ke terminal BATT</strong> — Cek polaritas dengan multimeter sebelum colok</div>
-        </div>
-        
-        <div class="checklist-item" onclick="toggleCheck(this)">
-          <div class="checkbox"></div>
-          <div class="checklist-text"><strong>8. Cek tegangan 5V regulator</strong> — Multimeter di rail 5V, harus 4.9-5.1V</div>
-        </div>
-        
-        <div class="checklist-item" onclick="toggleCheck(this)">
-          <div class="checkbox"></div>
-          <div class="checklist-text"><strong>9. Cek LCD nyala</strong> — Kalau gagal, ubah <code>0x3F</code> ke <code>0x27</code> di kode, upload ulang</div>
-        </div>
-        
-        <div class="checklist-item" onclick="toggleCheck(this)">
-          <div class="checkbox"></div>
-          <div class="checklist-text"><strong>10. Buka Serial Monitor 115200 baud</strong> — Pastikan ada output Vpan, Ipan, Vbatt, dll</div>
-        </div>
-        
-        <div class="checklist-item" onclick="toggleCheck(this)">
-          <div class="checkbox"></div>
-          <div class="checklist-text"><strong>11. Kalibrasi ACS712 ZERO</strong> — Tanpa panel, ukur output ACS712, sesuaikan <code>ACS_ZERO</code> di kode</div>
-        </div>
-        
-        <div class="checklist-item" onclick="toggleCheck(this)">
-          <div class="checkbox"></div>
-          <div class="checklist-text"><strong>12. Test float switch manual</strong> — Angkat pelampung, lihat status di Serial. Kalau salah, balik <code>FLOAT_EMPTY_STATE</code></div>
-        </div>
-        
-        <div class="checklist-item" onclick="toggleCheck(this)">
-          <div class="checkbox"></div>
-          <div class="checklist-text"><strong>13. Test tombol menu</strong> — Tekan, LCD harus pindah halaman (4 halaman total)</div>
-        </div>
-        
-        <div class="checklist-item" onclick="toggleCheck(this)">
-          <div class="checkbox"></div>
-          <div class="checklist-text"><strong>14. Test relay tanpa pompa</strong> — Bypass float switch (kondisikan tank kosong), dengar bunyi "klik" relay</div>
-        </div>
-        
-        <div class="checklist-item" onclick="toggleCheck(this)">
-          <div class="checkbox"></div>
-          <div class="checklist-text"><strong>15. Sambungkan pompa ke relay</strong> — Cek polaritas, klem selang dengan kuat</div>
-        </div>
-        
-        <div class="checklist-item" onclick="toggleCheck(this)">
-          <div class="checkbox"></div>
-          <div class="checklist-text"><strong>16. Test pompa nyala/mati</strong> — Manual trigger dengan float switch, lihat air mengalir</div>
-        </div>
-        
-        <div class="checklist-item" onclick="toggleCheck(this)">
-          <div class="checkbox"></div>
-          <div class="checklist-text"><strong>17. Sambungkan panel surya</strong> — Cek polaritas, pastikan diode anti-backflow terpasang benar</div>
-        </div>
-        
-        <div class="checklist-item" onclick="toggleCheck(this)">
-          <div class="checkbox"></div>
-          <div class="checklist-text"><strong>18. Test MPPT outdoor</strong> — Bawa keluar saat siang, lihat duty cycle berubah di Serial</div>
-        </div>
-        
-        <div class="checklist-item" onclick="toggleCheck(this)">
-          <div class="checkbox"></div>
-          <div class="checklist-text"><strong>19. Verifikasi pengisian aki</strong> — Multimeter di terminal aki, harus naik perlahan saat panel kena matahari</div>
-        </div>
-        
-        <div class="checklist-item" onclick="toggleCheck(this)">
-          <div class="checkbox"></div>
-          <div class="checklist-text"><strong>20. Cek PWM dengan oscilloscope</strong> — Pinjam dari lab. Probe di D9, harus 25kHz dengan duty bervariasi</div>
-        </div>
-        
-        <div class="checklist-item" onclick="toggleCheck(this)">
-          <div class="checkbox"></div>
-          <div class="checklist-text"><strong>21. Set BYPASS_LVD_FOR_TEST = false</strong> — Aktifkan proteksi battery untuk operasi normal</div>
-        </div>
-        
-        <div class="checklist-item" onclick="toggleCheck(this)">
-          <div class="checkbox"></div>
-          <div class="checklist-text"><strong>22. Upload ulang dengan setting final</strong> — Kode versi production siap deploy</div>
-        </div>
-        
-        <div class="checklist-item" onclick="toggleCheck(this)">
-          <div class="checkbox"></div>
-          <div class="checklist-text"><strong>23. Test cycle penuh otomatis</strong> — Tank kosong → pompa nyala → tank penuh → pompa mati. Ulangi 3x.</div>
-        </div>
-        
-        <div class="checklist-item" onclick="toggleCheck(this)">
-          <div class="checkbox"></div>
-          <div class="checklist-text"><strong>24. Pasang ke box panel</strong> — Susun dengan baut M3+spacer, cable tie kabel rapi</div>
-        </div>
-        
-        <div class="checklist-item" onclick="toggleCheck(this)">
-          <div class="checkbox"></div>
-          <div class="checklist-text"><strong>25. Final demo siap</strong> — Foto dokumentasi, siap presentasi sidang capstone! 🎓</div>
-        </div>
+        <div class="checklist-item" onclick="toggleCheck(this)"><div class="checkbox"></div><div class="checklist-text"><strong>1. Solder semua komponen ke PCB</strong></div></div>
+        <div class="checklist-item" onclick="toggleCheck(this)"><div class="checkbox"></div><div class="checklist-text"><strong>2. Cek visual PCB</strong> — Tidak ada short, semua solder mengkilap</div></div>
+        <div class="checklist-item" onclick="toggleCheck(this)"><div class="checkbox"></div><div class="checklist-text"><strong>3. Cek kontinuitas dengan multimeter</strong></div></div>
+        <div class="checklist-item" onclick="toggleCheck(this)"><div class="checkbox"></div><div class="checklist-text"><strong>4. Pasang Arduino Nano ke female header</strong></div></div>
+        <div class="checklist-item" onclick="toggleCheck(this)"><div class="checkbox"></div><div class="checklist-text"><strong>5. Set BYPASS_LVD_FOR_TEST = true</strong></div></div>
+        <div class="checklist-item" onclick="toggleCheck(this)"><div class="checkbox"></div><div class="checklist-text"><strong>6. Upload kode dari Arduino IDE</strong></div></div>
+        <div class="checklist-item" onclick="toggleCheck(this)"><div class="checkbox"></div><div class="checklist-text"><strong>7. Pasang aki 12V ke terminal BATT</strong></div></div>
+        <div class="checklist-item" onclick="toggleCheck(this)"><div class="checkbox"></div><div class="checklist-text"><strong>8. Cek tegangan 5V regulator</strong> — Harus 4.9-5.1V</div></div>
+        <div class="checklist-item" onclick="toggleCheck(this)"><div class="checkbox"></div><div class="checklist-text"><strong>9. Cek LCD nyala</strong> — Kalau gagal, ubah 0x3F ke 0x27</div></div>
+        <div class="checklist-item" onclick="toggleCheck(this)"><div class="checkbox"></div><div class="checklist-text"><strong>10. Buka Serial Monitor 115200 baud</strong></div></div>
+        <div class="checklist-item" onclick="toggleCheck(this)"><div class="checkbox"></div><div class="checklist-text"><strong>11. Kalibrasi ACS712 ZERO</strong></div></div>
+        <div class="checklist-item" onclick="toggleCheck(this)"><div class="checkbox"></div><div class="checklist-text"><strong>12. Test float switch manual</strong></div></div>
+        <div class="checklist-item" onclick="toggleCheck(this)"><div class="checkbox"></div><div class="checklist-text"><strong>13. Test tombol menu</strong> — LCD harus pindah halaman</div></div>
+        <div class="checklist-item" onclick="toggleCheck(this)"><div class="checkbox"></div><div class="checklist-text"><strong>14. Test relay tanpa pompa</strong> — Dengar bunyi "klik"</div></div>
+        <div class="checklist-item" onclick="toggleCheck(this)"><div class="checkbox"></div><div class="checklist-text"><strong>15. Sambungkan pompa ke relay</strong></div></div>
+        <div class="checklist-item" onclick="toggleCheck(this)"><div class="checkbox"></div><div class="checklist-text"><strong>16. Test pompa nyala/mati</strong></div></div>
+        <div class="checklist-item" onclick="toggleCheck(this)"><div class="checkbox"></div><div class="checklist-text"><strong>17. Sambungkan panel surya</strong></div></div>
+        <div class="checklist-item" onclick="toggleCheck(this)"><div class="checkbox"></div><div class="checklist-text"><strong>18. Test MPPT outdoor</strong></div></div>
+        <div class="checklist-item" onclick="toggleCheck(this)"><div class="checkbox"></div><div class="checklist-text"><strong>19. Verifikasi pengisian aki</strong></div></div>
+        <div class="checklist-item" onclick="toggleCheck(this)"><div class="checkbox"></div><div class="checklist-text"><strong>20. Cek PWM dengan oscilloscope</strong> — Harus 25kHz</div></div>
+        <div class="checklist-item" onclick="toggleCheck(this)"><div class="checkbox"></div><div class="checklist-text"><strong>21. Set BYPASS_LVD_FOR_TEST = false</strong></div></div>
+        <div class="checklist-item" onclick="toggleCheck(this)"><div class="checkbox"></div><div class="checklist-text"><strong>22. Upload ulang dengan setting final</strong></div></div>
+        <div class="checklist-item" onclick="toggleCheck(this)"><div class="checkbox"></div><div class="checklist-text"><strong>23. Test cycle penuh otomatis</strong> — Ulangi 3x</div></div>
+        <div class="checklist-item" onclick="toggleCheck(this)"><div class="checkbox"></div><div class="checklist-text"><strong>24. Pasang ke box panel</strong></div></div>
+        <div class="checklist-item" onclick="toggleCheck(this)"><div class="checkbox"></div><div class="checklist-text"><strong>25. Final demo siap</strong> — Siap presentasi sidang capstone! 🎓</div></div>
       </div>
-      
-      <p style="text-align: center; margin-top: 16px; color: var(--text-muted); font-size: 13px;">
-        💡 Tips: Lakukan checklist sambil rekam video. Bisa jadi bukti dokumentasi untuk laporan TA.
-      </p>
-    </div>
-    
-    <div class="info-box">
-      <h3>🚨 Troubleshooting Umum</h3>
-      
-      <h4>LCD tidak nyala / blank</h4>
-      <ul>
-        <li>Putar trimpot kontras di backpack I2C</li>
-        <li>Cek kabel SDA (A4) dan SCL (A5)</li>
-        <li>Coba alamat <code>0x27</code> jika <code>0x3F</code> tidak jalan</li>
-        <li>Upload I2C Scanner sketch untuk cari alamat aktual</li>
-      </ul>
-      
-      <h4>Pompa tidak nyala saat seharusnya</h4>
-      <ul>
-        <li>Cek sinyal D8 dengan multimeter — harus 5V saat aktif</li>
-        <li>Cek modul relay — apakah benar high-trigger?</li>
-        <li>Cek kontak relay COM-NO — apakah switch saat trigger?</li>
-        <li>Cek <code>FLOAT_EMPTY_STATE</code> arahnya benar</li>
-      </ul>
-      
-      <h4>MPPT tidak tracking (duty stuck)</h4>
-      <ul>
-        <li>Cek pembacaan Vpanel dan Ipanel di Serial</li>
-        <li>Pastikan ACS712 wiring benar (input current vs sinyal)</li>
-        <li>Bandingkan dengan multimeter — apakah pembacaan akurat?</li>
-        <li>Test dengan menggerakkan panel ke arah berbeda — duty harus berubah</li>
-      </ul>
-      
-      <h4>Aki tidak terisi</h4>
-      <ul>
-        <li>Cek diode anti-backflow polaritas (anoda ke MPPT, katoda ke aki)</li>
-        <li>Ukur tegangan output BTS7960 — harus &gt; tegangan aki</li>
-        <li>Cek panel — di matahari langsung minimal Voc 18-22V</li>
-        <li>Cek induktor 100µH terpasang dengan benar</li>
-      </ul>
-      
-      <h4>Reading sensor tidak stabil</h4>
-      <ul>
-        <li>Cek sambungan ground — semua pad GND nyambung?</li>
-        <li>Cek divider resistor — toleransi 1% lebih bagus dari 5%</li>
-        <li>Pastikan kabel sensor pendek dan tidak sejajar kabel power</li>
-        <li>Naikkan <code>NUM_SAMPLES</code> dari 30 ke 50 untuk averaging lebih halus</li>
-      </ul>
     </div>
   </section>
   
@@ -2858,153 +2349,41 @@ LiquidCrystal_I2C lcd(<span class="number">0x3F</span>, <span class="number">16<
         <div class="flow-num">1</div>
         <div class="flow-content">
           <h5>☀️ Panel Surya 50Wp</h5>
-          <p>Sinar matahari mengenai panel monocrystalline. Panel menghasilkan DC dengan Voc ~22V dan Isc ~2.85A. Output tergantung intensitas cahaya dan suhu.</p>
+          <p>Sinar matahari → DC dengan Voc ~22V, Isc ~2.85A</p>
         </div>
       </div>
       <div class="flow-arrow">▼</div>
-      
       <div class="flow-step">
         <div class="flow-num">2</div>
         <div class="flow-content">
           <h5>🔬 Pengukuran Tegangan & Arus Panel</h5>
-          <p>Sebelum masuk power stage, jalur panel dipecah ke 2 sensor:<br>
-          <strong>Vpanel:</strong> Lewat divider 100k+22k → A0 Arduino<br>
-          <strong>Ipanel:</strong> Arus utama lewat ACS712, output sinyal → A1 Arduino</p>
+          <p>Vpanel → divider 100k+22k → A0 | Ipanel → ACS712 → A1</p>
         </div>
       </div>
       <div class="flow-arrow">▼</div>
-      
       <div class="flow-step">
         <div class="flow-num">3</div>
         <div class="flow-content">
           <h5>🧠 Algoritma MPPT P&O di Arduino</h5>
-          <p>Arduino baca Vpanel dan Ipanel tiap 100ms. Hitung Ppanel = V × I. Bandingkan dengan Ppanel sebelumnya.<br>
-          Jika daya naik → tambah duty cycle. Jika daya turun → kurangi duty cycle. Hasilnya adalah duty cycle PWM yang akan ke power stage.</p>
+          <p>Hitung Ppanel = V × I, adjust duty cycle PWM tiap 100ms</p>
         </div>
       </div>
       <div class="flow-arrow">▼</div>
-      
       <div class="flow-step">
         <div class="flow-num">4</div>
         <div class="flow-content">
-          <h5>⚡ PWM 25kHz dari Pin D9</h5>
-          <p>Arduino generate PWM frekuensi tinggi 25kHz dari pin D9 (Timer1 OCR1A). Duty cycle berubah sesuai algoritma MPPT. Ini sinyal kontrol untuk MOSFET di BTS7960.</p>
+          <h5>⚡ BTS7960 + Induktor → Aki 12V 9Ah</h5>
+          <p>MOSFET switching 25kHz → induktor smoothing → diode anti-backflow → aki</p>
         </div>
       </div>
       <div class="flow-arrow">▼</div>
-      
       <div class="flow-step">
         <div class="flow-num">5</div>
         <div class="flow-content">
-          <h5>🔌 BTS7960 Power Stage Switching</h5>
-          <p>Sinyal PWM ke RPWM BTS7960. MOSFET internal switching arus panel ON/OFF dengan kecepatan 25kHz. Output adalah pulsa-pulsa dengan duty yang menentukan tegangan rata-rata.</p>
+          <h5>🚰 Float Switch → Relay → Pompa CH8028</h5>
+          <p>Tandon kosong + Vbatt > 11V → D8 HIGH → relay → pompa nyala → air naik → float HIGH → pompa mati</p>
         </div>
       </div>
-      <div class="flow-arrow">▼</div>
-      
-      <div class="flow-step">
-        <div class="flow-num">6</div>
-        <div class="flow-content">
-          <h5>🌀 Induktor 100µH Smoothing</h5>
-          <p>Pulsa switching dari BTS7960 masuk ke induktor 100µH. Induktor menyimpan energi dalam medan magnet saat ON dan melepaskan saat OFF. Hasilnya: arus DC halus, bukan pulsa lagi.</p>
-        </div>
-      </div>
-      <div class="flow-arrow">▼</div>
-      
-      <div class="flow-step">
-        <div class="flow-num">7</div>
-        <div class="flow-content">
-          <h5>🛡️ Diode Schottky Anti-Backflow</h5>
-          <p>Diode SS54 mencegah arus dari aki balik ke panel saat panel teduh/malam. Forward voltage drop ~0.4V. Setelah ini langsung ke terminal aki.</p>
-        </div>
-      </div>
-      <div class="flow-arrow">▼</div>
-      
-      <div class="flow-step">
-        <div class="flow-num">8</div>
-        <div class="flow-content">
-          <h5>🔋 Pengisian Aki 12V 9Ah</h5>
-          <p>Daya hasil MPPT mengisi aki Powerplus VRLA. Tegangan charging stabil di 13.5-14V. Aki menyimpan energi untuk dipakai kapanpun, terutama saat panel tidak optimal.</p>
-        </div>
-      </div>
-      <div class="flow-arrow">▼</div>
-      
-      <div class="flow-step">
-        <div class="flow-num">9</div>
-        <div class="flow-content">
-          <h5>📊 Pengukuran Tegangan Baterai</h5>
-          <p>Vbatt dipecah lewat divider 20k+10k → A2 Arduino. Arduino monitor kapan aki penuh (~13.5V) atau low (~11V). Untuk LVD (Low Voltage Disconnect) dan tampilan LCD.</p>
-        </div>
-      </div>
-      <div class="flow-arrow">▼</div>
-      
-      <div class="flow-step">
-        <div class="flow-num">10</div>
-        <div class="flow-content">
-          <h5>🚰 Float Switch Cek Level Air</h5>
-          <p>Sensor pelampung di tandon kasih sinyal ke D7 Arduino. LOW (tertekan magnet reed) = tandon kosong, perlu diisi. HIGH = tandon penuh, stop pompa.</p>
-        </div>
-      </div>
-      <div class="flow-arrow">▼</div>
-      
-      <div class="flow-step">
-        <div class="flow-num">11</div>
-        <div class="flow-content">
-          <h5>🎯 Decision Logic Arduino</h5>
-          <p>Arduino cek 3 syarat untuk nyalakan pompa:<br>
-          ✅ Vbatt {'>'} 11V (LVD aman)<br>
-          ✅ Float switch = LOW (tandon kosong)<br>
-          ✅ Mode = AUTO<br>
-          Kalau semua syarat terpenuhi, kasih sinyal HIGH ke D8.</p>
-        </div>
-      </div>
-      <div class="flow-arrow">▼</div>
-      
-      <div class="flow-step">
-        <div class="flow-num">12</div>
-        <div class="flow-content">
-          <h5>⚙️ Trigger Modul Relay</h5>
-          <p>D8 HIGH → optocoupler PC817 di modul relay aktif → transistor 2N2222 ON → coil relay tertarik → kontak COM-NO terhubung. Arus aki sekarang ngalir ke pompa.</p>
-        </div>
-      </div>
-      <div class="flow-arrow">▼</div>
-      
-      <div class="flow-step">
-        <div class="flow-num">13</div>
-        <div class="flow-content">
-          <h5>💧 Pompa DC Nyala</h5>
-          <p>Pompa CH8028 12V 1100GPH menerima arus dari aki (lewat kontak relay). Pompa mulai memutar impeller, air masuk dari intake submersible, keluar ke output 25mm dengan flow ~70 L/menit.</p>
-        </div>
-      </div>
-      <div class="flow-arrow">▼</div>
-      
-      <div class="flow-step">
-        <div class="flow-num">14</div>
-        <div class="flow-content">
-          <h5>🌊 Air Mengalir ke Tandon</h5>
-          <p>Air dari pompa naik lewat selang 25mm ke tandon. Saat air naik, pelampung float switch ikut naik. Begitu mencapai level penuh, magnet di pelampung membuat reed switch flip, sinyal D7 berubah ke HIGH.</p>
-        </div>
-      </div>
-      <div class="flow-arrow">▼</div>
-      
-      <div class="flow-step">
-        <div class="flow-num">15</div>
-        <div class="flow-content">
-          <h5>🛑 Auto-Stop Pompa</h5>
-          <p>Arduino baca D7 = HIGH (tandon penuh). Kasih sinyal LOW ke D8. Relay mati, kontak COM-NO terputus, pompa berhenti. Sistem standby sampai air tandon turun lagi → cycle berulang.</p>
-        </div>
-      </div>
-    </div>
-    
-    <div class="info-box">
-      <h3>📺 Yang Tampil di LCD</h3>
-      <p>Selama sistem berjalan, LCD 16×2 menampilkan informasi yang bisa ditekan ganti dengan tombol menu (D2):</p>
-      <ul>
-        <li><strong>Page 1:</strong> Vpanel & Ipanel & Ppanel</li>
-        <li><strong>Page 2:</strong> Vbatt & status charging</li>
-        <li><strong>Page 3:</strong> Status pompa & float switch</li>
-        <li><strong>Page 4:</strong> Mode operasi & duty cycle MPPT</li>
-      </ul>
     </div>
   </section>
   
@@ -3022,6 +2401,11 @@ LiquidCrystal_I2C lcd(<span class="number">0x3F</span>, <span class="number">16<
   <span>Tersimpan</span>
 </div>
 
+<!-- ============================================================
+  FIREBASE MODULE SCRIPT
+  Tugasnya SATU: inisialisasi Firestore dan resolve promise handshake.
+  Tidak ada logika UI di sini sama sekali.
+============================================================ -->
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/12.12.1/firebase-app.js";
   import {
@@ -3041,204 +2425,295 @@ LiquidCrystal_I2C lcd(<span class="number">0x3F</span>, <span class="number">16<
     measurementId: "G-T0BR4DH2G0"
   };
 
-  const app = initializeApp(firebaseConfig);
-  const db = getFirestore(app);
-  const sharedDocRef = doc(db, "bom_capstone", "shared_state");
+  try {
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+    const sharedDocRef = doc(db, "bom_capstone", "shared_state");
 
-  window.firebaseHelpers = {
-    async save(data) {
-      await setDoc(sharedDocRef, {
-        ...data,
-        source: "website",
-        syncedAt: new Date().toISOString()
-      });
-    },
-    async load() {
-      const snap = await getDoc(sharedDocRef);
-      return snap.exists() ? snap.data() : null;
-    }
-  };
+    // Resolve handshake promise — inline script sedang menunggu ini
+    window.__resolveFirebase({
+      async save(data) {
+        await setDoc(sharedDocRef, {
+          ...data,
+          source: "website",
+          syncedAt: new Date().toISOString()
+        });
+      },
+      async load() {
+        const snap = await getDoc(sharedDocRef);
+        return snap.exists() ? snap.data() : null;
+      }
+    });
 
-  console.log("Firebase Firestore siap dipakai");
-  // PANGGIL INIT DI SINI SETELAH FIREBASE BENAR-BENAR SIAP
-  if (typeof window.jalankanWeb === "function") {
-    window.jalankanWeb();
+    console.log("[Firebase] Firestore siap.");
+  } catch (err) {
+    console.error("[Firebase] Init error:", err);
+    // Tetap resolve dengan null agar inline script tidak hang selamanya
+    window.__resolveFirebase(null);
   }
 </script>
 
+<!-- ============================================================
+  MAIN APPLICATION SCRIPT (classic, defer)
+  Semua logika UI, save, load, vote, checklist ada di sini.
+============================================================ -->
 <script>
-  // =============================================
-  // STORAGE SYSTEM — localStorage + Firestore
-  // =============================================
+  // ============================================================
+  // HANDSHAKE: buat Promise yang diselesaikan oleh Firebase module
+  // Ini HARUS ada sebelum module script jalan (module adalah defer)
+  // ============================================================
+  window.__firebaseReadyPromise = new Promise(function(resolve) {
+    window.__resolveFirebase = resolve;
+  });
+
+  // ============================================================
+  // STATE GLOBAL
+  // ============================================================
   const STORAGE_KEY = 'mppt_capstone_data_v1';
-  let cloudSaveTimer = null;
   
+  // FLAG KRITIS: blokir semua saveAll() selama init belum selesai
+  let isInitializing = true;
+
+  let priceData = { beli: {}, sewa: {} };
+  let cloudSaveTimer = null;
+
+  // ============================================================
+  // HELPERS
+  // ============================================================
+  function formatRp(num) {
+    return 'Rp ' + Math.round(num).toLocaleString('id-ID');
+  }
+
+  function setLoadingText(text) {
+    const el = document.getElementById('loading-text');
+    if (el) el.textContent = text;
+  }
+
+  function hideLoading() {
+    const overlay = document.getElementById('loading-overlay');
+    if (!overlay) return;
+    overlay.classList.add('hidden');
+    // Hapus dari DOM setelah transisi selesai
+    setTimeout(function() { overlay.remove(); }, 500);
+  }
+
+  function showSaveIndicator() {
+    const indicator = document.getElementById('save-indicator');
+    if (!indicator) return;
+    indicator.classList.add('show');
+    clearTimeout(window._saveTimer);
+    window._saveTimer = setTimeout(function() {
+      indicator.classList.remove('show');
+    }, 1500);
+  }
+
+  function updateLastSavedText(source) {
+    const display = document.getElementById('last-saved');
+    if (!display) return;
+    const now = new Date().toLocaleString('id-ID');
+    if (source === 'cloud') {
+      display.textContent = 'Terakhir disimpan: ' + now + ' (cloud + lokal)';
+    } else if (source === 'local') {
+      display.textContent = 'Terakhir disimpan: ' + now + ' (lokal)';
+    } else {
+      display.textContent = 'Data dimuat dari ' + source;
+    }
+  }
+
+  // ============================================================
+  // DATA COLLECTION
+  // ============================================================
   function collectCurrentData() {
-    const data = {
+    var data = {
       votes: {},
       prices: priceData,
       checklist: [],
       savedAt: new Date().toISOString()
     };
 
-    document.querySelectorAll('.card[data-name]').forEach(card => {
-      const name = card.dataset.name;
-      const activeBtn = card.querySelector('.vote-btn.active');
-      if (activeBtn) {
-        if (activeBtn.classList.contains('beli')) data.votes[name] = 'beli';
-        else if (activeBtn.classList.contains('sewa')) data.votes[name] = 'sewa';
-        else if (activeBtn.classList.contains('punya')) data.votes[name] = 'punya';
-      }
+    document.querySelectorAll('.card[data-name]').forEach(function(card) {
+      var name = card.dataset.name;
+      var activeBtn = card.querySelector('.vote-btn.active');
+      if (!activeBtn) return;
+      if (activeBtn.classList.contains('beli')) data.votes[name] = 'beli';
+      else if (activeBtn.classList.contains('sewa')) data.votes[name] = 'sewa';
+      else if (activeBtn.classList.contains('punya')) data.votes[name] = 'punya';
     });
 
-    document.querySelectorAll('.checklist-item').forEach((item, idx) => {
+    document.querySelectorAll('.checklist-item').forEach(function(item, idx) {
       if (item.classList.contains('checked')) data.checklist.push(idx);
     });
 
     return data;
   }
 
+  // ============================================================
+  // APPLY DATA KE UI — hanya render, tidak save
+  // ============================================================
   function applyDataToUI(data) {
     if (!data) return;
 
+    // Restore prices
     if (data.prices) priceData = data.prices;
 
+    // Restore votes
     if (data.votes) {
-      Object.keys(data.votes).forEach(name => {
-        const card = document.querySelector(`.card[data-name="${name}"]`);
-        if (card) {
-          const targetClass = data.votes[name];
-          const btn = card.querySelector(`.vote-btn.${targetClass}`);
-          if (btn) {
-            card.querySelectorAll('.vote-btn').forEach(b => b.classList.remove('active'));
-            btn.classList.add('active');
-          }
-        }
+      Object.keys(data.votes).forEach(function(name) {
+        var card = document.querySelector('.card[data-name="' + name + '"]');
+        if (!card) return;
+        var targetClass = data.votes[name];
+        var btn = card.querySelector('.vote-btn.' + targetClass);
+        if (!btn) return;
+        card.querySelectorAll('.vote-btn').forEach(function(b) { b.classList.remove('active'); });
+        btn.classList.add('active');
       });
     }
 
+    // Restore checklist
     if (data.checklist) {
-      const items = document.querySelectorAll('.checklist-item');
-      items.forEach(item => item.classList.remove('checked'));
-      data.checklist.forEach(idx => {
+      var items = document.querySelectorAll('.checklist-item');
+      items.forEach(function(item) { item.classList.remove('checked'); });
+      data.checklist.forEach(function(idx) {
         if (items[idx]) items[idx].classList.add('checked');
       });
     }
+  }
 
-    if (data.savedAt) {
-      const date = new Date(data.savedAt);
-      const display = document.getElementById('last-saved');
-      if (display) {
-        display.textContent = `Terakhir disimpan: ${date.toLocaleString('id-ID')} (cloud + lokal)`;
+  // ============================================================
+  // LOAD ALL — prioritas cloud, fallback localStorage
+  // ============================================================
+  async function loadAll() {
+    var helpers = window.__firebaseHelpers; // sudah diset oleh initPage
+    var data = null;
+    var source = null;
+
+    // 1. Coba cloud dulu
+    if (helpers && helpers.load) {
+      try {
+        setLoadingText('Mengunduh data dari cloud...');
+        data = await helpers.load();
+        if (data) {
+          source = 'cloud';
+          // Sync ke localStorage sebagai cache
+          try { localStorage.setItem(STORAGE_KEY, JSON.stringify(data)); } catch(e) {}
+        }
+      } catch (err) {
+        console.warn('[Load] Cloud load error, fallback ke localStorage:', err);
       }
+    }
+
+    // 2. Fallback ke localStorage
+    if (!data) {
+      try {
+        setLoadingText('Memuat dari penyimpanan lokal...');
+        var raw = localStorage.getItem(STORAGE_KEY);
+        if (raw) {
+          data = JSON.parse(raw);
+          source = 'localStorage';
+        }
+      } catch (err) {
+        console.warn('[Load] localStorage error:', err);
+      }
+    }
+
+    // 3. Terapkan ke UI (tidak ada save di sini!)
+    if (data) {
+      applyDataToUI(data);
+      updateLastSavedText(source === 'cloud' ? 'cloud' : 'lokal');
+    } else {
+      var display = document.getElementById('last-saved');
+      if (display) display.textContent = 'Belum ada data tersimpan';
     }
   }
 
+  // ============================================================
+  // SAVE ALL — diblokir keras selama isInitializing === true
+  // ============================================================
   function saveAll() {
+    // GATEKEEPER UTAMA: tidak boleh save selama inisialisasi
+    if (isInitializing) {
+      console.log('[Save] Diblokir: isInitializing masih true');
+      return;
+    }
+
     try {
-      const data = collectCurrentData();
+      var data = collectCurrentData();
+      
+      // Save lokal dulu (sync, cepat)
       localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
       showSaveIndicator();
+      updateLastSavedText('local');
 
-      if (window.firebaseHelpers?.save) {
+      // Save cloud (async, debounced 400ms)
+      var helpers = window.__firebaseHelpers;
+      if (helpers && helpers.save) {
         clearTimeout(cloudSaveTimer);
-        cloudSaveTimer = setTimeout(async () => {
+        cloudSaveTimer = setTimeout(async function() {
           try {
-            await window.firebaseHelpers.save(data);
-            const display = document.getElementById('last-saved');
-            if (display) {
-              display.textContent = `Terakhir disimpan: ${new Date().toLocaleString('id-ID')} (cloud + lokal)`;
-            }
+            await helpers.save(data);
+            updateLastSavedText('cloud');
+            console.log('[Save] Cloud save berhasil');
           } catch (err) {
-            console.error('Cloud save failed:', err);
+            console.warn('[Save] Cloud save error:', err);
           }
         }, 400);
       }
     } catch (err) {
-      console.error('Save failed:', err);
+      console.error('[Save] Error:', err);
     }
   }
-  
-  async function loadAll() {
-    try {
-      let data = null;
 
-      if (window.firebaseHelpers?.load) {
-        try {
-          data = await window.firebaseHelpers.load();
-        } catch (err) {
-          console.error('Cloud load failed:', err);
-        }
-      }
-
-      if (!data) {
-        const raw = localStorage.getItem(STORAGE_KEY);
-        if (raw) data = JSON.parse(raw);
-      }
-
-      if (!data) return;
-
-      applyDataToUI(data);
-    } catch (err) {
-      console.error('Load failed:', err);
-    }
-  }
-  
+  // ============================================================
+  // CLEAR ALL
+  // ============================================================
   function clearAll() {
     if (!confirm('Yakin mau hapus SEMUA data? Ini akan menghapus vote, harga, dan checklist. Tidak bisa dibatalkan.')) return;
     localStorage.removeItem(STORAGE_KEY);
-    if (window.firebaseHelpers?.save) {
-      window.firebaseHelpers.save({ votes: {}, prices: { beli: {}, sewa: {} }, checklist: [], savedAt: new Date().toISOString() })
-        .finally(() => location.reload());
+    var emptyData = { votes: {}, prices: { beli: {}, sewa: {} }, checklist: [], savedAt: new Date().toISOString() };
+    var helpers = window.__firebaseHelpers;
+    if (helpers && helpers.save) {
+      helpers.save(emptyData).finally(function() { location.reload(); });
     } else {
       location.reload();
     }
   }
-  
+
+  // ============================================================
+  // EXPORT / IMPORT
+  // ============================================================
   function exportData() {
     try {
-      const raw = localStorage.getItem(STORAGE_KEY);
-      if (!raw) {
-        alert('Belum ada data yang tersimpan');
-        return;
-      }
-      
-      const data = JSON.parse(raw);
-      const exportObj = {
-        ...data,
-        exportedAt: new Date().toISOString()
-      };
-      
-      const blob = new Blob([JSON.stringify(exportObj, null, 2)], {type: 'application/json'});
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
+      var raw = localStorage.getItem(STORAGE_KEY);
+      if (!raw) { alert('Belum ada data yang tersimpan'); return; }
+      var data = JSON.parse(raw);
+      data.exportedAt = new Date().toISOString();
+      var blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+      var url = URL.createObjectURL(blob);
+      var a = document.createElement('a');
       a.href = url;
-      a.download = `mppt-capstone-data-${new Date().toISOString().split('T')[0]}.json`;
+      a.download = 'mppt-capstone-data-' + new Date().toISOString().split('T')[0] + '.json';
       a.click();
       URL.revokeObjectURL(url);
     } catch (err) {
       alert('Export gagal: ' + err.message);
     }
   }
-  
+
   function importData(input) {
-    const file = input.files[0];
+    var file = input.files[0];
     if (!file) return;
-    
-    const reader = new FileReader();
+    var reader = new FileReader();
     reader.onload = function(e) {
       try {
-        const data = JSON.parse(e.target.result);
+        var data = JSON.parse(e.target.result);
         if (!data.votes && !data.prices && !data.checklist) {
-          alert('File tidak valid');
-          return;
+          alert('File tidak valid'); return;
         }
-        
         if (!confirm('Import data? Ini akan timpa data yang ada sekarang.')) return;
-        
         localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
-        if (window.firebaseHelpers?.save) {
-          window.firebaseHelpers.save(data).finally(() => location.reload());
+        var helpers = window.__firebaseHelpers;
+        if (helpers && helpers.save) {
+          helpers.save(data).finally(function() { location.reload(); });
         } else {
           location.reload();
         }
@@ -3248,230 +2723,224 @@ LiquidCrystal_I2C lcd(<span class="number">0x3F</span>, <span class="number">16<
     };
     reader.readAsText(file);
   }
-  
-  function showSaveIndicator() {
-    const indicator = document.getElementById('save-indicator');
-    if (!indicator) return;
-    indicator.classList.add('show');
-    clearTimeout(window._saveTimer);
-    window._saveTimer = setTimeout(() => indicator.classList.remove('show'), 1500);
-  }
-  
-  // =============================================
+
+  // ============================================================
   // CHECKLIST
-  // =============================================
+  // ============================================================
   function toggleCheck(item) {
     item.classList.toggle('checked');
     updateChecklistProgress();
     saveAll();
   }
-  
+
   function updateChecklistProgress() {
-    const items = document.querySelectorAll('.checklist-item');
-    const checked = document.querySelectorAll('.checklist-item.checked');
-    const display = document.getElementById('checklist-progress');
-    if (display) {
-      display.textContent = `${checked.length}/${items.length}`;
-    }
+    var items = document.querySelectorAll('.checklist-item');
+    var checked = document.querySelectorAll('.checklist-item.checked');
+    var display = document.getElementById('checklist-progress');
+    if (display) display.textContent = checked.length + '/' + items.length;
   }
-  
-  // =============================================
+
+  // ============================================================
   // VOTE SYSTEM
-  // =============================================
+  // ============================================================
   function vote(btn) {
-    const container = btn.parentElement;
-    const buttons = container.querySelectorAll('.vote-btn');
-    const wasActive = btn.classList.contains('active');
-    buttons.forEach(b => b.classList.remove('active'));
+    var container = btn.parentElement;
+    var buttons = container.querySelectorAll('.vote-btn');
+    var wasActive = btn.classList.contains('active');
+    buttons.forEach(function(b) { b.classList.remove('active'); });
     if (!wasActive) btn.classList.add('active');
+    // Render kalkulator (tanpa save otomatis — saveAll() akan dicall sendiri)
     syncCalculators();
     saveAll();
   }
-  
-  // =============================================
-  // CALCULATOR SYNC
-  // =============================================
+
+  // ============================================================
+  // CALCULATOR
+  // ============================================================
+  function getSavedPrice(name) {
+    return priceData.beli && priceData.beli[name] ? priceData.beli[name] : '';
+  }
+
+  function getSavedSewa(name) {
+    return (priceData.sewa && priceData.sewa[name]) ? priceData.sewa[name] : { harga: '', bulan: '1' };
+  }
+
   function syncCalculators() {
-    const cards = document.querySelectorAll('.card[data-name]');
-    const beliList = document.getElementById('calc-beli-list');
-    const sewaList = document.getElementById('calc-sewa-list');
-    const beliTotal = document.getElementById('calc-beli-total');
-    const sewaTotal = document.getElementById('calc-sewa-total');
-    
-    let beliItems = [];
-    let sewaItems = [];
-    
-    cards.forEach(card => {
-      const name = card.dataset.name;
-      const qty = card.querySelector('.card-qty')?.textContent || '1';
-      const activeBtn = card.querySelector('.vote-btn.active');
+    var cards = document.querySelectorAll('.card[data-name]');
+    var beliList = document.getElementById('calc-beli-list');
+    var sewaList = document.getElementById('calc-sewa-list');
+    var beliTotal = document.getElementById('calc-beli-total');
+    var sewaTotal = document.getElementById('calc-sewa-total');
+
+    if (!beliList || !sewaList) return;
+
+    var beliItems = [];
+    var sewaItems = [];
+
+    cards.forEach(function(card) {
+      var name = card.dataset.name;
+      var qty = card.querySelector('.card-qty') ? card.querySelector('.card-qty').textContent : '1';
+      var activeBtn = card.querySelector('.vote-btn.active');
       if (!activeBtn) return;
-      
-      if (activeBtn.classList.contains('beli')) {
-        beliItems.push({ name, qty });
-      } else if (activeBtn.classList.contains('sewa')) {
-        sewaItems.push({ name, qty });
-      }
+      if (activeBtn.classList.contains('beli')) beliItems.push({ name: name, qty: qty });
+      else if (activeBtn.classList.contains('sewa')) sewaItems.push({ name: name, qty: qty });
     });
-    
+
+    // Render tabel beli
     if (beliItems.length === 0) {
       beliList.innerHTML = '<div class="empty-state">Belum ada komponen yang dicentang BELI. Vote dulu di section BOM di atas.</div>';
-      beliTotal.style.display = 'none';
+      if (beliTotal) beliTotal.style.display = 'none';
     } else {
-      beliList.innerHTML = `
-        <table class="calc-table">
-          <thead>
-            <tr>
-              <th>Komponen</th>
-              <th style="text-align: center; width: 80px;">Qty</th>
-              <th style="text-align: right; width: 200px;">Harga (Rp)</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${beliItems.map((item, idx) => `
-              <tr>
-                <td>${item.name}</td>
-                <td style="text-align: center; color: var(--accent-cyan);">${item.qty}</td>
-                <td>
-                  <input type="number" placeholder="0" data-type="beli" data-idx="${idx}" 
-                    oninput="recalc()" 
-                    value="${getSavedPrice('beli', item.name) || ''}">
-                </td>
-              </tr>
-            `).join('')}
-          </tbody>
-        </table>
-      `;
-      beliTotal.style.display = 'flex';
+      var beliRows = beliItems.map(function(item) {
+        return '<tr>' +
+          '<td>' + item.name + '</td>' +
+          '<td style="text-align: center; color: var(--accent-cyan);">' + item.qty + '</td>' +
+          '<td><input type="number" placeholder="0" data-name-beli="' + item.name + '" oninput="recalc()" value="' + getSavedPrice(item.name) + '"></td>' +
+          '</tr>';
+      }).join('');
+      beliList.innerHTML = '<table class="calc-table"><thead><tr><th>Komponen</th><th style="text-align:center;width:80px">Qty</th><th style="text-align:right;width:200px">Harga (Rp)</th></tr></thead><tbody>' + beliRows + '</tbody></table>';
+      if (beliTotal) beliTotal.style.display = 'flex';
     }
-    
+
+    // Render tabel sewa
     if (sewaItems.length === 0) {
       sewaList.innerHTML = '<div class="empty-state">Belum ada komponen yang dicentang SEWA LAB. Vote dulu di section BOM di atas.</div>';
-      sewaTotal.style.display = 'none';
+      if (sewaTotal) sewaTotal.style.display = 'none';
     } else {
-      sewaList.innerHTML = `
-        <table class="calc-table">
-          <thead>
-            <tr>
-              <th>Alat</th>
-              <th style="text-align: center;">Qty</th>
-              <th style="text-align: right;">Sewa/Bulan (Rp)</th>
-              <th style="text-align: center;">Bulan</th>
-              <th style="text-align: right;">Subtotal</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${sewaItems.map((item, idx) => {
-              const saved = getSavedSewa(item.name);
-              return `
-                <tr data-name="${item.name}">
-                  <td>${item.name}</td>
-                  <td style="text-align: center; color: var(--accent-cyan);">${item.qty}</td>
-                  <td>
-                    <input type="number" placeholder="0" data-type="sewa-perbulan" 
-                      oninput="recalc()" value="${saved.harga || ''}">
-                  </td>
-                  <td>
-                    <input type="number" placeholder="1" data-type="sewa-bulan" min="1"
-                      oninput="recalc()" value="${saved.bulan || '1'}" style="text-align: center;">
-                  </td>
-                  <td style="text-align: right; color: var(--accent-orange); font-weight: 700;" class="sewa-subtotal">Rp 0</td>
-                </tr>
-              `;
-            }).join('')}
-          </tbody>
-        </table>
-      `;
-      sewaTotal.style.display = 'flex';
+      var sewaRows = sewaItems.map(function(item) {
+        var saved = getSavedSewa(item.name);
+        return '<tr data-name-sewa="' + item.name + '">' +
+          '<td>' + item.name + '</td>' +
+          '<td style="text-align:center;color:var(--accent-cyan);">' + item.qty + '</td>' +
+          '<td><input type="number" placeholder="0" data-sewa-harga oninput="recalc()" value="' + (saved.harga || '') + '"></td>' +
+          '<td><input type="number" placeholder="1" data-sewa-bulan min="1" oninput="recalc()" value="' + (saved.bulan || '1') + '" style="text-align:center;"></td>' +
+          '<td style="text-align:right;color:var(--accent-orange);font-weight:700;" class="sewa-subtotal">Rp 0</td>' +
+          '</tr>';
+      }).join('');
+      sewaList.innerHTML = '<table class="calc-table"><thead><tr><th>Alat</th><th style="text-align:center">Qty</th><th style="text-align:right">Sewa/Bulan (Rp)</th><th style="text-align:center">Bulan</th><th style="text-align:right">Subtotal</th></tr></thead><tbody>' + sewaRows + '</tbody></table>';
+      if (sewaTotal) sewaTotal.style.display = 'flex';
     }
-    
+
     recalc();
   }
-  
-  // =============================================
-  // PRICES STORAGE
-  // =============================================
-  let priceData = { beli: {}, sewa: {} };
-  
-  function getSavedPrice(type, name) {
-    return priceData[type][name];
-  }
-  
-  function getSavedSewa(name) {
-    return priceData.sewa[name] || { harga: '', bulan: '1' };
-  }
-  
-  // =============================================
-  // RECALCULATE TOTALS
-  // =============================================
+
   function recalc() {
-    let totalBeli = 0;
-    let totalSewa = 0;
-    
-    document.querySelectorAll('input[data-type="beli"]').forEach(input => {
-      const row = input.closest('tr');
-      const name = row.cells[0].textContent;
-      const val = parseFloat(input.value) || 0;
+    var totalBeli = 0;
+    var totalSewa = 0;
+
+    // Hitung beli
+    document.querySelectorAll('input[data-name-beli]').forEach(function(input) {
+      var name = input.getAttribute('data-name-beli');
+      var val = parseFloat(input.value) || 0;
+      if (!priceData.beli) priceData.beli = {};
       priceData.beli[name] = val;
       totalBeli += val;
     });
-    
-    document.querySelectorAll('#calc-sewa-list tbody tr').forEach(row => {
-      const name = row.dataset.name;
-      const harga = parseFloat(row.querySelector('input[data-type="sewa-perbulan"]').value) || 0;
-      const bulan = parseFloat(row.querySelector('input[data-type="sewa-bulan"]').value) || 1;
-      const subtotal = harga * bulan;
-      
-      priceData.sewa[name] = { harga, bulan };
-      
-      row.querySelector('.sewa-subtotal').textContent = formatRp(subtotal);
+
+    // Hitung sewa
+    document.querySelectorAll('tr[data-name-sewa]').forEach(function(row) {
+      var name = row.getAttribute('data-name-sewa');
+      var hargaInput = row.querySelector('[data-sewa-harga]');
+      var bulanInput = row.querySelector('[data-sewa-bulan]');
+      var harga = hargaInput ? (parseFloat(hargaInput.value) || 0) : 0;
+      var bulan = bulanInput ? (parseFloat(bulanInput.value) || 1) : 1;
+      var subtotal = harga * bulan;
+      if (!priceData.sewa) priceData.sewa = {};
+      priceData.sewa[name] = { harga: harga, bulan: bulan };
+      var subtotalCell = row.querySelector('.sewa-subtotal');
+      if (subtotalCell) subtotalCell.textContent = formatRp(subtotal);
       totalSewa += subtotal;
     });
-    
-    document.getElementById('calc-beli-amount').textContent = formatRp(totalBeli);
-    document.getElementById('calc-sewa-amount').textContent = formatRp(totalSewa);
-    document.getElementById('rekap-beli').textContent = formatRp(totalBeli);
-    document.getElementById('rekap-sewa').textContent = formatRp(totalSewa);
-    document.getElementById('rekap-total').textContent = formatRp(totalBeli + totalSewa);
-    
+
+    // Update display
+    var elBA = document.getElementById('calc-beli-amount');
+    var elSA = document.getElementById('calc-sewa-amount');
+    var elRB = document.getElementById('rekap-beli');
+    var elRS = document.getElementById('rekap-sewa');
+    var elRT = document.getElementById('rekap-total');
+    if (elBA) elBA.textContent = formatRp(totalBeli);
+    if (elSA) elSA.textContent = formatRp(totalSewa);
+    if (elRB) elRB.textContent = formatRp(totalBeli);
+    if (elRS) elRS.textContent = formatRp(totalSewa);
+    if (elRT) elRT.textContent = formatRp(totalBeli + totalSewa);
+
+    // Debounced save — saveAll() punya gatekeeper isInitializing sendiri
     clearTimeout(window._recalcSaveTimer);
     window._recalcSaveTimer = setTimeout(saveAll, 500);
   }
-  
-  function formatRp(num) {
-    return 'Rp ' + Math.round(num).toLocaleString('id-ID');
-  }
-  
-  // =============================================
+
+  // ============================================================
   // SMOOTH SCROLL NAV
-  // =============================================
-  document.querySelectorAll('.nav-menu a').forEach(link => {
-    link.addEventListener('click', e => {
+  // ============================================================
+  document.querySelectorAll('.nav-menu a').forEach(function(link) {
+    link.addEventListener('click', function(e) {
       e.preventDefault();
-      const target = document.querySelector(link.getAttribute('href'));
-      if (target) {
-        target.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      }
+      var target = document.querySelector(link.getAttribute('href'));
+      if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
     });
   });
 
+  // ============================================================
+  // EXPOSE FUNCTIONS KE HTML (onclick="...")
+  // ============================================================
   window.vote = vote;
   window.recalc = recalc;
   window.exportData = exportData;
   window.importData = importData;
   window.clearAll = clearAll;
   window.toggleCheck = toggleCheck;
-  
-  // =============================================
-  // INIT — order matters!
-  // =============================================
+
+  // ============================================================
+  // INIT PAGE — orkestrasi utama, urutan dijamin ketat
+  // ============================================================
   async function initPage() {
+    console.log('[Init] Mulai inisialisasi...');
+    setLoadingText('Menghubungkan ke cloud...');
+
+    // 1. Tunggu Firebase siap dengan timeout 5 detik
+    var firebaseHelpers = null;
+    try {
+      var timeoutPromise = new Promise(function(resolve) {
+        setTimeout(function() { resolve(null); }, 5000);
+      });
+      firebaseHelpers = await Promise.race([
+        window.__firebaseReadyPromise,
+        timeoutPromise
+      ]);
+
+      if (firebaseHelpers) {
+        console.log('[Init] Firebase berhasil terhubung');
+        window.__firebaseHelpers = firebaseHelpers;
+      } else {
+        console.warn('[Init] Firebase timeout/null — pakai localStorage saja');
+        window.__firebaseHelpers = null;
+      }
+    } catch (err) {
+      console.error('[Init] Firebase promise error:', err);
+      window.__firebaseHelpers = null;
+    }
+
+    // 2. Load data (cloud atau localStorage) — ini selesai sebelum UI aktif
     await loadAll();
+
+    // 3. Render kalkulator dari data yang sudah dimuat
     syncCalculators();
+
+    // 4. Update progress checklist
     updateChecklistProgress();
+
+    // 5. BARU sekarang izinkan save — SETELAH semua selesai
+    isInitializing = false;
+    console.log('[Init] isInitializing = false, auto-save aktif');
+
+    // 6. Sembunyikan loading overlay
+    hideLoading();
+
+    console.log('[Init] Selesai.');
   }
+
+  // Jalankan
+  initPage();
 </script>
-<script defer src="https://static.cloudflareinsights.com/beacon.min.js/v8c78df7c7c0f484497ecbca7046644da1771523124516" integrity="sha512-8DS7rgIrAmghBFwoOTujcf6D9rXvH8xm8JQ1Ja01h9QX8EzXldiszufYa4IFfKdLUKTTrnSFXLDkUEOTrZQ8Qg==" data-cf-beacon='{"version":"2024.11.0","token":"7939e04a4baf43c8b86a560f74aac60e","server_timing":{"name":{"cfCacheStatus":true,"cfEdge":true,"cfExtPri":true,"cfL4":true,"cfOrigin":true,"cfSpeedBrain":true},"location_startswith":null}}' crossorigin="anonymous"></script>
-<script defer src="https://static.cloudflareinsights.com/beacon.min.js/v8c78df7c7c0f484497ecbca7046644da1771523124516" integrity="sha512-8DS7rgIrAmghBFwoOTujcf6D9rXvH8xm8JQ1Ja01h9QX8EzXldiszufYa4IFfKdLUKTTrnSFXLDkUEOTrZQ8Qg==" data-cf-beacon='{"version":"2024.11.0","token":"8d57f005eff546ba871311748ac6df7b","r":1,"server_timing":{"name":{"cfCacheStatus":true,"cfEdge":true,"cfExtPri":true,"cfL4":true,"cfOrigin":true,"cfSpeedBrain":true},"location_startswith":null}}' crossorigin="anonymous"></script>
 </body>
 </html>
